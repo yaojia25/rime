@@ -163,3 +163,4 @@ cython_debug/
 src/backup/
 src/schema/
 data.json
+tests/
