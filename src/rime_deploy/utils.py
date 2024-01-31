@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from rime_deploy.metadata import splice_proxy
 
 from src.rime_deploy.config import BACKUP_DIR, SCHEMA_DIR, config, console
 
@@ -22,28 +23,24 @@ def get_default_rime_userdata_dir():
 
 
 def clone(schema_url: str, schema_dir: str) -> bool:
+    cmd = ["git", "clone", "--depth=1", schema_url, schema_dir]
     try:
-        subp = subprocess.run(
-            f"git clone --depth=1 {schema_url} {schema_dir}", stdout=subprocess.PIPE, shell=True, timeout=60
-        )
+        subp = subprocess.run(cmd, stdout=None, capture_output=True, timeout=60)
         while True:
             if subp.returncode == 0:
-                console.print("克隆[green]成功[/]")
                 return True
     except subprocess.TimeoutExpired:
-        console.print("克隆仓库[red]超时[/]")
         return False
 
 
 def pull(schema_dir) -> bool:
+    cmd = ["git", "pull", "-f"]
     try:
-        subp = subprocess.run("git pull -f", stdout=subprocess.PIPE, shell=True, timeout=60, cwd=schema_dir)
+        subp = subprocess.run(cmd, stdout=None, capture_output=True, timeout=60, cwd=schema_dir)
         while True:
             if subp.returncode == 0:
-                console.print("更新本地仓库[green]成功[/]")
                 return True
     except subprocess.TimeoutExpired:
-        console.print("更新本地仓库[red]超时[/]")
         return False
 
 
@@ -55,11 +52,14 @@ def backup_custom_yaml(userdata_dir: str | Path):
     backup_dir.mkdir()
     for iter in userdata_dir.iterdir():
         if iter.name.endswith("custom.yaml") or iter.name in backup_files:
-            if iter.is_dir():
-                shutil.copytree(iter, backup_dir / iter.name, dirs_exist_ok=True)
-            elif iter.is_file():
-                shutil.copy(iter, backup_dir / iter.name)
-    console.print("备份自定义配置[green]成功[/]")
+            try:
+                if iter.is_dir():
+                    shutil.copytree(iter, backup_dir / iter.name, dirs_exist_ok=True)
+                elif iter.is_file():
+                    shutil.copy(iter, backup_dir / iter.name)
+            except Exception:
+                return False
+    return True
 
 
 def copy_schema_to_userdata(userdata_dir: Path, schema_dir: Path) -> bool:
@@ -73,33 +73,47 @@ def copy_schema_to_userdata(userdata_dir: Path, schema_dir: Path) -> bool:
                     shutil.copytree(iter, userdata_dir / iter.name, dirs_exist_ok=True)
                 elif iter.is_file():
                     shutil.copy(iter, userdata_dir / iter.name)
-            except Exception as e:
-                console.log(e)
-                console.print("复制方案到用户文件夹[red]失败[/]")
+            except Exception:
                 return False
-    console.print("复制方案到用户文件夹[green]成功[/]")
     return True
 
 
 def schema_update():
-    with console.status("更新方案中...") as status:
-        status.update("[1] 检测基础配置")
-        if config.userdata_dir is None:
-            console.print("未设置[yellow]用户文件夹[/]")
-            return
-        url = config.proxy_url + config.schema_url if config.is_proxy else config.schema_url
+    status_success = "[green]✓[/]"
+    status_failure = "[red]x[/]"
+    with console.status("更新方案中...", spinner="arc") as status:
+        # 验证基础配置
+        status.update(" [1/4] 验证基础配置...")
+        url = splice_proxy(config.proxy_url + config.schema_url) if config.is_proxy else config.schema_url
         schema_dir = SCHEMA_DIR.joinpath(config.schema_name)
-
-        status.update("[2] 更新本地方案")
+        console.print(f" {status_success} 基础配置验证完成")
+        # 更新本地输入方案
+        status.update(" [2/4] 更新本地输入方案...")
         if schema_dir.exists():
-            if not pull(schema_dir):
-                return
+            ret = pull(schema_dir)
+            tags = "更新"
         else:
-            if not clone(url, schema_dir):
-                return
+            ret = clone(url, schema_dir)
+            tags = "克隆"
+        if ret:
+            console.print(f" {status_success} 本地输入方案{tags}成功")
+        else:
+            console.print(f" {status_failure} 本地输入方案{tags}失败")
+            console.print("\n[blue]提示: [/]请检查输入方案链接是否正确，或者尝试开启代理并重试。")
+            return
+        # 备份自定义配置
+        status.update(" [3/4] 备份自定义配置...")
+        ret = backup_custom_yaml(config.userdata_dir)
+        if ret:
+            console.print(f" {status_success} 自定义配置备份成功")
+        else:
+            console.print(f" {status_failure} 自定义配置备份失败")
+        # 更新用户文件夹
+        status.update(" [4/4] 更新用户文件夹...")
+        ret = copy_schema_to_userdata(config.userdata_dir, schema_dir)
+        if ret:
+            console.print(f" {status_success} 用户文件夹更新成功")
+        else:
+            console.print(f" {status_failure} 用户文件夹更新失败")
 
-        status.update("[3] 备份自定义配置")
-        backup_custom_yaml(config.userdata_dir)
-
-        status.update("[4] 复制配置")
-        copy_schema_to_userdata(config.userdata_dir, schema_dir)
+        console.print("🎉 方案更新完成!")
