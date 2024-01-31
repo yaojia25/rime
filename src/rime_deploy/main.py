@@ -133,6 +133,7 @@ def switch_proxy():
 {divider}
  1 GHPROXY (https://ghproxy.com/)
  2 MOEYY (https://github.moeyy.xyz/)
+ 3 KKGITHUB (https://github.com/)
 {divider}
  c 关闭代理
  0 返回上级菜单
@@ -146,6 +147,10 @@ def switch_proxy():
             switch_proxy()
         case "2":
             set_proxy(Proxy.MOEYY)
+            console.print("设置[green]成功[/]")
+            switch_proxy()
+        case "2":
+            set_proxy(Proxy.KKGITHUB)
             console.print("设置[green]成功[/]")
             switch_proxy()
         case "c":
