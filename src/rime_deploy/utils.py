@@ -6,9 +6,9 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from rime_deploy.metadata import splice_proxy
 
 from src.rime_deploy.config import BACKUP_DIR, SCHEMA_DIR, config, console
+from src.rime_deploy.metadata import splice_proxy
 
 
 def get_default_rime_userdata_dir():
@@ -45,8 +45,8 @@ def pull(schema_dir) -> bool:
 
 
 def backup_custom_yaml(userdata_dir: str | Path):
-    backup_files = ["custom_phrase.txt"]
-    backup_files.extend(config.extra_backup_files)
+    backup_files = config.build_in_backup_files
+    backup_files.extend(config.custom_backup_files)
     userdata_dir = Path(userdata_dir)
     backup_dir = BACKUP_DIR.joinpath(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
     backup_dir.mkdir()
@@ -64,8 +64,8 @@ def backup_custom_yaml(userdata_dir: str | Path):
 
 def copy_schema_to_userdata(userdata_dir: Path, schema_dir: Path) -> bool:
     userdata_dir = Path(userdata_dir)
-    exclude_files = [".git", ".gitignore", "LICENSE", "README.md"]
-    exclude_files.extend(config.exclude_schema_files)
+    exclude_files = config.build_in_exclude_schema_files
+    exclude_files.extend(config.custom_exclude_schema_files)
     for iter in schema_dir.iterdir():
         if iter not in exclude_files:
             try:

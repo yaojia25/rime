@@ -4,7 +4,15 @@
 
 import sys
 
-from src.rime_deploy.config import BACKUP_DIR, SCHEMA_DIR, config, console, set_proxy, set_schema
+from src.rime_deploy.config import (
+    BACKUP_DIR,
+    SCHEMA_DIR,
+    config,
+    console,
+    set_custom_exclude_schema_files,
+    set_proxy,
+    set_schema,
+)
 from src.rime_deploy.metadata import Proxy, RimeSchema
 from src.rime_deploy.utils import get_default_rime_userdata_dir, schema_update
 
@@ -25,14 +33,14 @@ def home():
 用户文件夹：{config.userdata_dir}
 {divider}
  1 [green]部署/更新[/]方案
- 2 [purple]切换[/]方案
- 3 切换代理
+ 2 [purple]方案[/]配置
+ 3 代理配置
  4 备份[yellow]自定义配置[/]
  5 [red]清理[/]方案文件
  6 修改[cyan]用户文件夹[/]
 {divider}
  0 退出
-"""
+    """
     console.print(content)
     menu_num = console.input("请输入选择 > ")
     match menu_num:
@@ -92,13 +100,15 @@ def auto_deplay():
 def switch_schema():
     content = f"""
 {divider}
-[bold white on blue]切换配置方案[/]
+[bold white on blue]方案配置[/]
 当前方案：[red]{config.schema_name}[/]
+方案排除文件：{config.custom_exclude_schema_files}
 {divider}
  1 雾凇拼音
  2 四叶草
+ c 自定义方案
+ e 设置方案排除文件
 {divider}
- d 自定义方案
  0 返回上级菜单
 """
     console.print(content)
@@ -106,17 +116,19 @@ def switch_schema():
     match menu_num:
         case "1":
             set_schema(RimeSchema.RIME_ICE)
-            console.print("设置[green]成功[/]")
             switch_schema()
         case "2":
             set_schema(RimeSchema.RIME_CLOVER_PINYIN)
-            console.print("设置[green]成功[/]")
             switch_schema()
-        case "d":
-            name = console.input("请输入方案名：")
-            value = console.input("请输入方案仓库链接：")
-            config.schema_name = name
+        case "c":
+            name = console.input("请输入方案名 > ")
+            value = console.input("请输入方案仓库链接 > ")
+            config.schema_name = name.upper
             config.schema_url = value
+            switch_schema()
+        case "e":
+            input = console.input("请输入需要排除的方案文件/文件名，多个以,分割 > ")
+            set_custom_exclude_schema_files(input)
             switch_schema()
         case "0":
             home()
@@ -143,15 +155,12 @@ def switch_proxy():
     match menu_num:
         case "1":
             set_proxy(Proxy.GHPROXY)
-            console.print("设置[green]成功[/]")
             switch_proxy()
         case "2":
             set_proxy(Proxy.MOEYY)
-            console.print("设置[green]成功[/]")
             switch_proxy()
         case "2":
             set_proxy(Proxy.KKGITHUB)
-            console.print("设置[green]成功[/]")
             switch_proxy()
         case "c":
             config.is_proxy = False
@@ -168,6 +177,7 @@ def backup():
     content = f"""
 {divider}
 [bold white on blue]备份配置[/]
+备份路径：{BACKUP_DIR}
 {divider}
  暂未实现
 {divider}

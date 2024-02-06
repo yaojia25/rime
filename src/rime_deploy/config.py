@@ -29,12 +29,20 @@ class Config:
     schema_name: str = RimeSchema.RIME_ICE.name
     schema_url: str = RimeSchema.RIME_ICE.value
     userdata_dir: str = None
-    extra_backup_files: list[str] = field(default_factory=list)
-    exclude_schema_files: list[str] = field(default_factory=list)
+    custom_backup_files: list[str] = field(default_factory=list)
+    custom_exclude_schema_files: list[str] = field(default_factory=list)
 
     _instance = None
     _lock = threading.Lock()
     _registered = False
+
+    @property
+    def build_in_backup_files():
+        return ["custom_phrase.txt"]
+
+    @property
+    def build_in_exclude_schema_files():
+        return [".git", ".gitignore", "LICENSE", "README.md"]
 
     def __new__(cls, *args, **kw):
         with cls._lock:
@@ -83,6 +91,12 @@ def set_proxy(proxy: Proxy):
     config.proxy_name = proxy.name
     config.proxy_url = proxy.value
     console.print("设置[green]成功[/]")
+
+
+def set_custom_exclude_schema_files(input: str) -> list:
+    _input = input.split(",")
+    config.build_in_exclude_schema_files = _input
+    return _input
 
 
 config = Config()
